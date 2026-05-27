@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <title>원소 퀴즈</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+        button {
+            font-size: 2em;
+        }
+        #results {
+            text-align: center;
+            max-width: 600px;
+            overflow-y: scroll;
+            height: calc(100vh - 200px); /* 화면에서 "풀이 결과"를 제외한 영역만큼 스크롤 가능 */
+            display: none; /* 초기에는 결과를 숨김 */
+        }
+        #results-container {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 1;
+        }
+        .incorrect {
+            background-color: #fde4e4; /* 연한 분홍색 배경색 지정 */
+        }
+    </style>
+</head>
+<body>
+    <button id="start-button" onclick="quiz()">퀴즈 시작</button>
+    <div id="results">
+        <div id="results-container">
+            <h2>풀이 결과</h2>
+        </div>
+    </div>
+    <button id="restart-button" onclick="location.reload();" style="display: none;">다시 시작</button>
+
+    <script>
+        const startButton = document.getElementById('start-button');
+        const resultsSection = document.getElementById('results');
+
+        let elements = [
+            { name: "수소", symbol: "H" },
+            { name: "헬륨", symbol: "He" },
+            { name: "리튬", symbol: "Li" },
+	    { name: "베릴륨", symbol: "Be" },
+            { name: "붕소", symbol: "B" },
+            { name: "탄소", symbol: "C" },
+            { name: "질소", symbol: "N" },
+            { name: "산소", symbol: "O" },
+	    { name: "플루오린", symbol: "F" },
+	    { name: "네온", symbol: "Ne" },
+            { name: "나트륨", symbol: "Na" },
+            { name: "마그네슘", symbol: "Mg" },
+            { name: "알루미늄", symbol: "Al" },
+            { name: "규소", symbol: "Si" },
+            { name: "인", symbol: "P" },
+            { name: "황", symbol: "S" },
+            { name: "염소", symbol: "Cl" },
+            { name: "아연", symbol: "Zn" },
+            { name: "칼륨", symbol: "K" },
+            { name: "칼슘", symbol: "Ca" },
+            { name: "철", symbol: "Fe" },
+            { name: "구리", symbol: "Cu" },
+            { name: "은", symbol: "Ag" },
+            { name: "금", symbol: "Au" },
+            { name: "바륨", symbol: "Ba" },
+            { name: "수은", symbol: "Hg" },
+        ];
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                let j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function quiz() {
+            // 퀴즈 시작 버튼을 숨깁니다.
+            startButton.style.display = 'none';
+            // 결과 표시 영역을 보여줍니다.
+            resultsSection.style.display = 'block';
+
+            let score = 0;
+            const questionTypes = ['name', 'symbol'];
+            let quizLog = [];
+
+            for (let type of questionTypes) {
+                shuffleArray(elements);
+                for (let i = 0; i < elements.length; i++) {
+                    let element = elements[i];
+                    let question, correctAnswer;
+
+                    if (type === 'name') {
+                        question = "이 원소의 이름은 무엇인가요? (" + element.symbol + ")";
+                        correctAnswer = element.name;
+                    } else {
+                        question = "이 원소의 기호는 무엇인가요? (" + element.name + ")";
+                        correctAnswer = element.symbol;
+                    }
+
+                    let userAnswer = prompt(question).trim();
+                    if (userAnswer === null) { // 사용자가 취소 버튼을 누른 경우
+                        alert("퀴즈 풀기를 취소하셨습니다.");
+                        return; // 퀴즈를 즉시 종료
+                    }
+                    let isCorrect = userAnswer === correctAnswer;
+                    if (isCorrect) {
+                        alert("정답입니다!");
+                        score++;
+                    } else {
+                        alert("틀렸습니다. 정답은 " + correctAnswer + "입니다.");
+                    }
+
+                    quizLog.push({
+                        question,
+                        userAnswer,
+                        correctAnswer,
+                        isCorrect
+                    });
+                }
+            }
+
+            alert(`당신의 점수는 ${score}/${elements.length * 2}입니다.`);
+            
+            let results = document.getElementById('results');
+            results.innerHTML = quizLog.map((item, index) => 
+                `<div class="${item.isCorrect ? '' : 'incorrect'}">
+                    <h3>문제 ${index + 1}</h3>
+                    <p>${item.question}</p>
+                    <p>당신의 답: ${item.userAnswer}</p>
+                    <p>정답: ${item.correctAnswer}</p>
+                    <p>채점 결과: ${item.isCorrect ? "맞음" : "틀림"}</p>
+                </div>`
+            ).join('');
+
+            // 문항 결과에 스타일 적용
+            const resultItems = document.querySelectorAll("#results > div");
+            resultItems.forEach((item, index) => {
+                if (!quizLog[index].isCorrect) {
+                    item.classList.add("incorrect");
+                }
+            });
+
+            document.getElementById('start-button').style.display = 'none'; // 퀴즈 시작 버튼을 숨깁니다.
+            document.getElementById('restart-button').style.display = 'inline'; // 다시 시작 버튼을 보여줍니다.
+        }
+
+    </script>
+</body>
+</html>
