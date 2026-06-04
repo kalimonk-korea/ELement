@@ -2,8 +2,6 @@
 <html lang="ko">
 <head>
     <title>원소 퀴즈</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body {
             display: flex;
@@ -18,7 +16,6 @@
         }
         #results {
             text-align: center;
-            width: 100%;
             max-width: 600px;
             overflow-y: scroll;
             height: calc(100vh - 200px); /* 화면에서 "풀이 결과"를 제외한 영역만큼 스크롤 가능 */
@@ -41,9 +38,8 @@
     <button id="start-button" onclick="quiz()">퀴즈 시작</button>
     <div id="results">
         <div id="results-container">
-            <h2 id="results-title">풀이 결과</h2>
+            <h2>풀이 결과</h2>
         </div>
-        <div id="results-list"></div>
     </div>
     <button id="restart-button" onclick="location.reload();" style="display: none;">다시 시작</button>
 
@@ -55,13 +51,13 @@
             { name: "수소", symbol: "H" },
             { name: "헬륨", symbol: "He" },
             { name: "리튬", symbol: "Li" },
-            { name: "베릴륨", symbol: "Be" },
+	    { name: "베릴륨", symbol: "Be" },
             { name: "붕소", symbol: "B" },
             { name: "탄소", symbol: "C" },
             { name: "질소", symbol: "N" },
             { name: "산소", symbol: "O" },
-            { name: "플루오린", symbol: "F" },
-            { name: "네온", symbol: "Ne" },
+	    { name: "플루오린", symbol: "F" },
+	    { name: "네온", symbol: "Ne" },
             { name: "나트륨", symbol: "Na" },
             { name: "마그네슘", symbol: "Mg" },
             { name: "알루미늄", symbol: "Al" },
@@ -96,11 +92,8 @@
             let score = 0;
             const questionTypes = ['name', 'symbol'];
             let quizLog = [];
-            let isCancelled = false; // 취소 상태 체크 변수
 
             for (let type of questionTypes) {
-                if (isCancelled) break; // 상위 루프 탈출 조건 추가
-
                 shuffleArray(elements);
                 for (let i = 0; i < elements.length; i++) {
                     let element = elements[i];
@@ -114,35 +107,11 @@
                         correctAnswer = element.symbol;
                     }
 
-                    let rawInput;
-                    let userAnswer = "";
-
-                    // [핵심 수정] 올바른 값이 입력되거나 취소를 누르기 전까지 반복하는 루프 생성
-                    while (true) {
-                        rawInput = prompt(question);
-
-                        // 1. 명확하게 [취소] 버튼이나 ESC를 누른 경우에만 종료 처리
-                        if (rawInput === null) { 
-                            alert("퀴즈 풀기를 취소하셨습니다. 지금까지의 결과를 보여줍니다.");
-                            isCancelled = true;
-                            break; 
-                        }
-
-                        userAnswer = rawInput.trim();
-
-                        // 2. 바깥을 누르거나 값 없이 [확인]을 누른 경우 (빈 문자열) 게임을 유지하며 재요청
-                        if (userAnswer === "") {
-                            alert("정답을 입력해주세요!\n(중단하려면 취소 버튼을 누르세요)");
-                            continue;
-                        }
-
-                        // 무언가 입력했다면 무한루프 탈출하여 채점으로 이동
-                        break;
+                    let userAnswer = prompt(question).trim();
+                    if (userAnswer === null) { // 사용자가 취소 버튼을 누른 경우
+                        alert("퀴즈 풀기를 취소하셨습니다.");
+                        return; // 퀴즈를 즉시 종료
                     }
-
-                    // 사용자가 취소를 눌러서 내부 루프를 탈출했다면 다음 문제 진행을 막음
-                    if (isCancelled) break;
-
                     let isCorrect = userAnswer === correctAnswer;
                     if (isCorrect) {
                         alert("정답입니다!");
@@ -160,26 +129,31 @@
                 }
             }
 
-            // 점수 알림 문구 출력
-            alert(`당신의 점수는 ${score}/${quizLog.length}입니다.`);
+            alert(`당신의 점수는 ${score}/${elements.length * 2}입니다.`);
             
-            // 상단 레이아웃 유지하며 결과 텍스트 타이틀 업데이트
-            document.getElementById('results-title').innerText = `풀이 결과 (${score}/${quizLog.length})`;
-            
-            // 결과 리스트만 따로 주입하여 상단 바 고정(sticky) 레이아웃 보존
-            let resultsList = document.getElementById('results-list');
-            resultsList.innerHTML = quizLog.map((item, index) => 
-                `<div class="result-item ${item.isCorrect ? '' : 'incorrect'}" style="border-bottom: 1px solid #ccc; padding: 10px;">
+            let results = document.getElementById('results');
+            results.innerHTML = quizLog.map((item, index) => 
+                `<div class="${item.isCorrect ? '' : 'incorrect'}">
                     <h3>문제 ${index + 1}</h3>
                     <p>${item.question}</p>
                     <p>당신의 답: ${item.userAnswer}</p>
                     <p>정답: ${item.correctAnswer}</p>
-                    <p>채점 결과: ${item.isCorrect ? "✅ 맞음" : "❌ 틀림"}</p>
+                    <p>채점 결과: ${item.isCorrect ? "맞음" : "틀림"}</p>
                 </div>`
             ).join('');
 
+            // 문항 결과에 스타일 적용
+            const resultItems = document.querySelectorAll("#results > div");
+            resultItems.forEach((item, index) => {
+                if (!quizLog[index].isCorrect) {
+                    item.classList.add("incorrect");
+                }
+            });
+
+            document.getElementById('start-button').style.display = 'none'; // 퀴즈 시작 버튼을 숨깁니다.
             document.getElementById('restart-button').style.display = 'inline'; // 다시 시작 버튼을 보여줍니다.
         }
+
     </script>
 </body>
 </html>
