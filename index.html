@@ -1,164 +1,245 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <title>원소 퀴즈</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>화학식 퀴즈 (입력창 포커스 유지 및 정지 방지)</title>
     <style>
         body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            flex-direction: column;
+            margin: 0; padding: 0;
+            background: #f4f7f6;
+            font-family: 'Malgun Gothic', sans-serif;
+            display: flex; flex-direction: column;
+            align-items: center; height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation; /* 더블탭 확대 방지 */
         }
-        button {
-            font-size: 2em;
+
+        header {
+            width: 100%; padding: 15px;
+            text-align: center; background: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            user-select: none;
         }
-        #results {
+        #score-board { font-size: 1.1rem; font-weight: bold; color: #2c3e50; }
+
+        #quiz-container {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            width: 90%; max-width: 600px;
+            user-select: none;
+        }
+        #formula-display {
+            font-size: 4.5rem; font-weight: bold;
+            margin-bottom: 20px; color: #3498db;
+        }
+        #feedback { height: 40px; font-size: 1.3rem; font-weight: bold; }
+
+        #input-area {
+            width: 100%; padding: 20px;
+            background: #fff; border-top: 1px solid #ddd;
             text-align: center;
-            max-width: 600px;
-            overflow-y: scroll;
-            height: calc(100vh - 200px); /* 화면에서 "풀이 결과"를 제외한 영역만큼 스크롤 가능 */
-            display: none; /* 초기에는 결과를 숨김 */
         }
-        #results-container {
-            position: sticky;
-            top: 0;
-            background-color: white;
-            padding: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            z-index: 1;
+        input {
+            width: 85%; max-width: 400px;
+            padding: 15px; font-size: 1.5rem;
+            border: 3px solid #3498db; border-radius: 10px;
+            text-align: center; outline: none;
         }
-        .incorrect {
-            background-color: #fde4e4; /* 연한 분홍색 배경색 지정 */
+        
+        /* 결과 및 오답 화면 */
+        #final-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; display: none;
+            flex-direction: column; align-items: center;
+            z-index: 100; padding: 20px; overflow-y: auto;
         }
+        #report-container {
+            width: 100%; max-width: 500px;
+            margin: 20px 0;
+        }
+        .report-item {
+            padding: 12px; border-bottom: 1px solid #eee;
+            display: flex; justify-content: space-between; align-items: center;
+            background-color: #fff1f1; margin-bottom: 5px; border-radius: 5px;
+        }
+        .correct-text { color: #2ecc71; font-weight: bold; }
+        .wrong-text { color: #e74c3c; font-weight: bold; }
+
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; margin-bottom: 50px; }
+        button {
+            padding: 15px 25px; font-size: 1.1rem; cursor: pointer;
+            border: none; border-radius: 10px; font-weight: bold;
+        }
+        .retry-btn { background: #e67e22; color: white; }
+        .reload-btn { background: #95a5a6; color: white; }
+
+        .correct { color: #2ecc71; }
+        .incorrect { color: #e74c3c; }
+        sub { font-size: 0.6em; vertical-align: sub; }
     </style>
 </head>
 <body>
-    <button id="start-button" onclick="quiz()">퀴즈 시작</button>
-    <div id="results">
-        <div id="results-container">
-            <h2>풀이 결과</h2>
+
+    <header>
+        <div id="score-board">
+            <span id="mode-text">전체 문제</span>: <span id="current-idx">1</span> / <span id="total-count">19</span> | 
+            점수: <span id="score">0</span>
+        </div>
+    </header>
+
+    <div id="quiz-container">
+        <div id="formula-display"></div>
+        <div id="feedback"></div>
+    </div>
+
+    <div id="input-area">
+        <input type="text" id="answer-input" placeholder="이름 입력 후 엔터" autocomplete="off" autofocus>
+    </div>
+
+    <div id="final-screen">
+        <h1 id="result-title">퀴즈 종료!</h1>
+        <h2 id="final-score"></h2>
+        
+        <div id="report-container">
+            <h3 id="report-title" style="text-align:center; border-bottom: 2px solid #333; padding-bottom: 10px;">오답 확인</h3>
+            <div id="wrong-list"></div>
+        </div>
+
+        <div class="btn-group">
+            <button id="re-challenge-btn" class="retry-btn" onclick="startRetry()">틀린 문제 다시 풀기</button>
+            <button class="reload-btn" onclick="confirmReload()">처음부터 시작</button>
         </div>
     </div>
-    <button id="restart-button" onclick="location.reload();" style="display: none;">다시 시작</button>
 
     <script>
-        const startButton = document.getElementById('start-button');
-        const resultsSection = document.getElementById('results');
-
-        let elements = [
-            { name: "수소", symbol: "H" },
-            { name: "헬륨", symbol: "He" },
-            { name: "리튬", symbol: "Li" },
-	    { name: "베릴륨", symbol: "Be" },
-            { name: "붕소", symbol: "B" },
-            { name: "탄소", symbol: "C" },
-            { name: "질소", symbol: "N" },
-            { name: "산소", symbol: "O" },
-	    { name: "플루오린", symbol: "F" },
-	    { name: "네온", symbol: "Ne" },
-            { name: "나트륨", symbol: "Na" },
-            { name: "마그네슘", symbol: "Mg" },
-            { name: "알루미늄", symbol: "Al" },
-            { name: "규소", symbol: "Si" },
-            { name: "인", symbol: "P" },
-            { name: "황", symbol: "S" },
-            { name: "염소", symbol: "Cl" },
-            { name: "아르곤", symbol: "Ar" },
-            { name: "칼륨", symbol: "K" },
-            { name: "칼슘", symbol: "Ca" },
-            { name: "철", symbol: "Fe" },
-            { name: "구리", symbol: "Cu" },
-            { name: "은", symbol: "Ag" },
-            { name: "금", symbol: "Au" },
-            { name: "바륨", symbol: "Ba" },
-            { name: "수은", symbol: "Hg" },
+        const initialData = [
+            { formula: "O<sub>2</sub>", name: "산소" }, { formula: "N<sub>2</sub>", name: "질소" },
+            { formula: "H<sub>2</sub>", name: "수소" }, { formula: "H<sub>2</sub>O", name: "물" },
+            { formula: "CO", name: "일산화탄소" }, { formula: "CO<sub>2</sub>", name: "이산화탄소" },
+            { formula: "HCl", name: "염화수소" }, { formula: "NH<sub>3</sub>", name: "암모니아" },
+            { formula: "CH<sub>4</sub>", name: "메테인" }, { formula: "NaCl", name: "염화나트륨" },
+            { formula: "AgNO<sub>3</sub>", name: "질산은" }, { formula: "NaNO<sub>3</sub>", name: "질산나트륨" },
+            { formula: "Na<sub>2</sub>CO<sub>3</sub>", name: "탄산나트륨" }, { formula: "CaCl<sub>2</sub>", name: "염화칼슘" },
+            { formula: "AgCl", name: "염화은" }, { formula: "PbI<sub>2</sub>", name: "아이오딘화납" },
+            { formula: "CaCO<sub>3</sub>", name: "탄산칼슘" }, { formula: "BaSO<sub>4</sub>", name: "황산바륨" },
+            { formula: "H<sub>2</sub>O<sub>2</sub>", name: "과산화수소" }
         ];
 
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                let j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
+        let currentQuestions = [...initialData].sort(() => Math.random() - 0.5);
+        let wrongQuestions = []; 
+        let currentIdx = 0;
+        let score = 0;
+        let isProcessing = false; // 연속 입력으로 인한 버그 방지 플래그
+
+        const formulaDisplay = document.getElementById('formula-display');
+        const answerInput = document.getElementById('answer-input');
+        const feedback = document.getElementById('feedback');
+        const scoreElement = document.getElementById('score');
+        const currentIdxElement = document.getElementById('current-idx');
+        const totalCountElement = document.getElementById('total-count');
+        const modeText = document.getElementById('mode-text');
+
+        // [핵심 수정] 화면의 빈 곳을 터치해도 게임이 오작동하지 않고 입력창에 포커스를 유지하게 만듦
+        document.addEventListener('click', (e) => {
+            // 클릭된 요소가 input창이 아니고 결과창이 열려있지 않다면 input창으로 포커스 강제 이동
+            if (e.target !== answerInput && document.getElementById('final-screen').style.display !== 'flex') {
+                answerInput.focus();
             }
+        });
+
+        function loadQuiz() {
+            if (currentIdx >= currentQuestions.length) {
+                showResult();
+                return;
+            }
+            isProcessing = false;
+            totalCountElement.innerText = currentQuestions.length;
+            formulaDisplay.innerHTML = currentQuestions[currentIdx].formula;
+            answerInput.value = "";
+            feedback.innerText = "";
+            currentIdxElement.innerText = currentIdx + 1;
+            answerInput.focus();
         }
 
-        function quiz() {
-            // 퀴즈 시작 버튼을 숨깁니다.
-            startButton.style.display = 'none';
-            // 결과 표시 영역을 보여줍니다.
-            resultsSection.style.display = 'block';
+        function checkAnswer() {
+            if (isProcessing) return; // 이미 채점 중이면 중복 실행 차단
+            isProcessing = true;
 
-            let score = 0;
-            const questionTypes = ['name', 'symbol'];
-            let quizLog = [];
-            let isCancelled = false; // 취소 여부 확인용 변수
+            const rawUserAnswer = answerInput.value;
+            const userAnswer = rawUserAnswer.replace(/\s+/g, ""); 
+            const correctAnswer = currentQuestions[currentIdx].name.replace(/\s+/g, ""); 
+            const isCorrect = userAnswer === correctAnswer;
 
-            for (let type of questionTypes) {
-                if (isCancelled) break; // 첫 번째 루프(이름 맞히기)에서 취소 시 두 번째 루프도 건너뜀
-
-                shuffleArray(elements);
-                for (let i = 0; i < elements.length; i++) {
-                    let element = elements[i];
-                    let question, correctAnswer;
-
-                    if (type === 'name') {
-                        question = "이 원소의 이름은 무엇인가요? (" + element.symbol + ")";
-                        correctAnswer = element.name;
-                    } else {
-                        question = "이 원소의 기호는 무엇인가요? (" + element.name + ")";
-                        correctAnswer = element.symbol;
-                    }
-
-                    let rawInput = prompt(question);
-                    
-                    if (rawInput === null) { // 사용자가 취소 버튼을 누른 경우
-                        alert("퀴즈 풀기를 중단합니다. 지금까지의 결과를 표시합니다.");
-                        isCancelled = true;
-                        break; // 내부 루프 탈출
-                    }
-
-                    let userAnswer = rawInput.trim();
-                    let isCorrect = userAnswer === correctAnswer;
-                    
-                    if (isCorrect) {
-                        alert("정답입니다!");
-                        score++;
-                    } else {
-                        alert("틀렸습니다. 정답은 " + correctAnswer + "입니다.");
-                    }
-
-                    quizLog.push({
-                        question,
-                        userAnswer,
-                        correctAnswer,
-                        isCorrect
-                    });
+            if (isCorrect) {
+                score++;
+                scoreElement.innerText = score;
+                feedback.innerText = "정답입니다! 👍";
+                feedback.className = "correct";
+            } else {
+                feedback.innerText = `오답! 정답: ${currentQuestions[currentIdx].name}`;
+                feedback.className = "incorrect";
+                if(!wrongQuestions.find(q => q.formula === currentQuestions[currentIdx].formula)) {
+                    wrongQuestions.push(currentQuestions[currentIdx]);
                 }
             }
 
-            // 결과 요약 알림창 (푼 문제 수 기준으로 점수 표시)
-            alert(`퀴즈 종료! 당신의 점수는 ${score}/${quizLog.length}입니다.`);
-            
-            let results = document.getElementById('results');
-            // 결과 리스트 렌더링
-            results.innerHTML = `
-                <div id="results-container">
-                    <h2>풀이 결과 (${score}/${quizLog.length})</h2>
-                </div>
-            ` + quizLog.map((item, index) => 
-                `<div class="${item.isCorrect ? '' : 'incorrect'}" style="border-bottom: 1px solid #ccc; padding: 10px;">
-                    <h3>문제 ${index + 1}</h3>
-                    <p>질문: ${item.question}</p>
-                    <p>당신의 답: ${item.userAnswer}</p>
-                    <p>정답: ${item.correctAnswer}</p>
-                    <p>채점 결과: ${item.isCorrect ? "✅ 맞음" : "❌ 틀림"}</p>
-                </div>`
-            ).join('');
-
-            document.getElementById('restart-button').style.display = 'inline'; 
+            currentIdx++;
+            setTimeout(loadQuiz, 1000);
         }
 
+        answerInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && answerInput.value.trim() !== "") {
+                checkAnswer();
+            }
+        });
+
+        function showResult() {
+            document.getElementById('final-screen').style.display = 'flex';
+            document.getElementById('final-score').innerText = `점수: ${score} / ${currentQuestions.length}`;
+            
+            const wrongList = document.getElementById('wrong-list');
+            const retryBtn = document.getElementById('re-challenge-btn');
+            wrongList.innerHTML = "";
+
+            if (wrongQuestions.length === 0) {
+                document.getElementById('report-title').innerText = "완벽합니다! 🎉";
+                wrongList.innerHTML = "<p style='text-align:center;'>모든 문제를 마스터하셨습니다.</p>";
+                retryBtn.style.display = 'none';
+            } else {
+                document.getElementById('report-title').innerText = "오답 노트";
+                retryBtn.style.display = 'block';
+                wrongQuestions.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = "report-item";
+                    div.innerHTML = `<span><strong>${item.formula}</strong></span> <span class="correct-text">${item.name}</span>`;
+                    wrongList.appendChild(div);
+                });
+            }
+        }
+
+        function startRetry() {
+            currentQuestions = [...wrongQuestions].sort(() => Math.random() - 0.5);
+            wrongQuestions = []; 
+            currentIdx = 0;
+            score = 0;
+            
+            modeText.innerText = "오답 재도전";
+            scoreElement.innerText = "0";
+            document.getElementById('final-screen').style.display = 'none';
+            
+            loadQuiz();
+        }
+
+        // [핵심 수정] 취소를 누르면 정지하지 않고 게임 상태 유지, 확인을 누를 때만 새로고침(초기화)
+        function confirmReload() {
+            if (confirm("정말 처음부터 다시 시작하시겠습니까?")) {
+                location.reload(); // 확인을 누르면 리로드하여 초기화
+            }
+            // 취소를 누르면 아무 일도 일어나지 않고 원래 결과 화면을 유지합니다.
+        }
+
+        loadQuiz();
     </script>
 </body>
 </html>
